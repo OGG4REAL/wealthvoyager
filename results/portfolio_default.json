@@ -1,0 +1,55 @@
+{
+  "mcp_data": {
+    "资产类别": [
+      "A股",
+      "债券",
+      "REITs",
+      "港股",
+      "美股",
+      "黄金",
+      "大宗商品"
+    ],
+    "预期收益率": [
+      "8.00%",
+      "3.00%",
+      "6.00%",
+      "7.00%",
+      "10.00%",
+      "5.00%",
+      "4.00%"
+    ],
+    "信息来源": [
+      "http://www.news.cn/fortune/20250307/8d3fb11f6e674812ade5ac84e67ea606/c.html",
+      "https://privatebank.jpmorgan.com/apac/cn/insights/markets-and-investing/tmt/navigating-rate-risks-how-bonds-are-better-positioned-in-2025",
+      "https://m.36kr.com/p/2263338019102727",
+      "https://news.stcn.com/sd/202101/t20210117_2742752.html",
+      "https://www.stcn.com/article/detail/1445398.html",
+      "https://pic.bankofchina.com/bocappd/rareport/202502/P020250218403069240592.pdf",
+      "http://pdf.dfcfw.com/pdf/H3_AP202008061396826053_1.PDF"
+    ]
+  },
+  "optimization": {
+    "assets": [
+      "A股",
+      "债券",
+      "REITs",
+      "港股",
+      "美股",
+      "黄金",
+      "大宗商品"
+    ],
+    "weights": [
+      0.04040404040404041,
+      0.04040404040404041,
+      0.24242424242424243,
+      0.06060606060606061,
+      0.37373737373737376,
+      0.20202020202020204,
+      0.04040404040404041
+    ],
+    "expected_return": 0.0723,
+    "expected_volatility": 0.085,
+    "final_amount": 462195.45,
+    "max_drawdown": 0.1982
+  }
+}
