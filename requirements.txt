@@ -52,6 +52,7 @@ langchain-core==0.3.62
 langchain-text-splitters==0.3.8
 langsmith==0.3.42
 MarkupSafe==3.0.2
+markdown==3.8
 marshmallow==3.26.1
 matplotlib==3.10.3
 matplotlib-inline==0.1.7
