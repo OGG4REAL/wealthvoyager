@@ -28,6 +28,7 @@ import platform
 import ast
 import requests
 import datetime
+import markdown as md
 
 # 添加必要的系统路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -587,16 +588,16 @@ def main():
         # 侧边栏页面选择
         page = st.sidebar.radio(
             "选择功能",
-            ["🏠 首页", "📈 投资组合优化", "🤖 Agent 模拟", "📰 市场新闻与解读"],
+            ["🏠 首页", "📈α 收益工坊", "🤖双智投对话引擎", "📰 市场新闻与解读"],
             index=0
         )
         
         # 根据选择渲染对应页面
         if page == "🏠 首页":
             page_home()
-        elif page == "📈 投资组合优化":
+        elif page == "📈α 收益工坊":
             page_portfolio_optimization()
-        elif page == "🤖 Agent 模拟":
+        elif page == "🤖双智投对话引擎":
             page_agent_simulation()
         else:
             page_market_news()
@@ -604,6 +605,49 @@ def main():
     except Exception as e:
         logger.error(f"主程序运行失败: {str(e)}")
         st.error("程序运行出错，请刷新页面重试")
+
+    # 在侧边栏左下角添加AssistHub客服标记
+    st.sidebar.markdown("""
+    <style>
+    #custom-assisthub-sidebar {
+        position: fixed;
+        left: 0;
+        bottom: 24px;
+        width: 260px;
+        z-index: 999;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding-left: 18px;
+    }
+    #custom-assisthub-bubble {
+        background: linear-gradient(90deg,#e0ecfa 0%,#f3f8fe 100%);
+        border: 1.5px solid #2563eb;
+        border-radius: 18px 18px 18px 4px;
+        box-shadow: 0 2px 8px rgba(59,130,246,0.08);
+        padding: 14px 18px 12px 16px;
+        margin-bottom: 6px;
+        color: #1e293b;
+        font-size: 1.08rem;
+        line-height: 1.7;
+        max-width: 220px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+    }
+    #custom-assisthub-sidebar .icon {
+        font-size: 1.45rem;
+        margin-right: 10px;
+        vertical-align: -2px;
+    }
+    </style>
+    <div id="custom-assisthub-sidebar">
+        <div id="custom-assisthub-bubble">
+            <span class="icon">💬</span>
+            有问题？随时咨询AssistHub智能客服
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def page_portfolio_optimization():
     """投资组合优化页面"""
@@ -632,15 +676,66 @@ def page_portfolio_optimization():
         col1, col2 = st.columns([1, 2])
 
         with col1:
-            st.markdown("### 📝 输入参数")
-            with st.expander("对话输入", expanded=True):
-                st.text_input("请输入您的投资问题:", key="user_input_key")
-                st.text_input(
-                    "请输入您的资产类别和持仓比例（允许范围：A股, 债券, REITs, 港股, 美股, 黄金, 大宗商品；若留空则使用默认资产：股票, 债券, 房地产信托）:",
-                    key="current_allocation"
-                )
-                st.button("发送", on_click=handle_send)
-                st.markdown(f"**Dify 回复:**  \n{st.session_state.dify_response}")
+            import os
+            import json
+            log_path = os.path.join(os.path.dirname(__file__), "conversation_log.json")
+            history = []
+            if os.path.exists(log_path):
+                try:
+                    with open(log_path, "r", encoding="utf-8") as f:
+                        log_data = json.load(f)
+                    if isinstance(log_data, list) and log_data:
+                        latest_id = log_data[-1].get("conversation_id", None)
+                        history = [item for item in log_data if item.get("conversation_id") == latest_id]
+                except Exception as e:
+                    history = [{"role": "系统", "content": f"读取对话历史失败: {e}"}]
+            else:
+                history = [{"role": "系统", "content": "未找到对话历史文件"}]
+
+            st.markdown("""
+            <div style='background:#fff;border-radius:14px;padding:20px 18px 16px 18px;box-shadow:0 4px 16px rgba(0,0,0,0.08);margin-bottom:20px;'>
+              <div style='display:flex;align-items:center;margin-bottom:12px;'>
+                <span style='font-size:1.5rem;margin-right:10px;'>🤖</span>
+                <span style='font-size:1.18rem;font-weight:700;color:#2563eb;'>AssistHub 客服</span>
+              </div>
+              <div style='color:#374151;font-size:1.05rem;margin-bottom:8px;'>
+                请输入您的投资问题，AssistHub会为您提供智能解答。<br>
+                如需自定义资产类别和持仓比例，请在下方输入，留空则使用默认资产配置。
+              </div>
+            """, unsafe_allow_html=True)
+
+            # 聊天历史折叠区
+            with st.expander("展开历史记录", expanded=False):
+                if history:
+                    for msg in history:
+                        user_input = msg.get("input", "")
+                        bot_resp = msg.get("response", "")
+                        # 用户气泡
+                        st.markdown(
+                            f"<div style='text-align:left;margin-bottom:8px;'>"
+                            f"<span style='display:inline-block;background:#2563eb;color:#fff;padding:7px 16px;border-radius:16px;font-size:1rem;max-width:80%;word-break:break-all;'>我：{user_input}</span>"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                        # 客服气泡
+                        st.markdown(
+                            f"<div style='text-align:right;margin-bottom:8px;'>"
+                            f"<span style='display:inline-block;background:#10b981;color:#fff;padding:7px 16px;border-radius:16px;font-size:1rem;max-width:80%;word-break:break-all;'>AssistHub：{bot_resp}</span>"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.markdown("<div style='color:#6B7280;text-align:center;'>暂无历史对话</div>", unsafe_allow_html=True)
+
+            # 保留原有两个输入框和发送按钮
+            st.text_input("请输入您的投资问题:", key="user_input_key")
+            st.text_input(
+                "请输入您的资产类别和持仓比例（允许范围：A股, 债券, REITs, 港股, 美股, 黄金, 大宗商品；若留空则使用默认资产：股票, 债券, 房地产信托）：",
+                key="current_allocation"
+            )
+            st.button("发送", on_click=handle_send)
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
             st.markdown("### 📊 优化结果")
@@ -812,7 +907,7 @@ def page_portfolio_optimization():
                         "预期收益率": [f"{r:.2%}" for r in mean_returns],
                         "信息来源": sources
                     })
-                    st.write("📌 **预测数据及来源**")
+                    st.write("📊 **预测数据及来源**")
                     st.table(df)
                 except Exception as e:
                     st.write("收益率可视化失败", e)
@@ -956,11 +1051,17 @@ def render_user_profile(profile: dict):
         ("允许杠杆", '是' if profile.get('leverage_allowed', False) else '否'),
         ("最大可接受回撤", f"{profile.get('max_acceptable_loss',0)*100:.1f}%"),
         ("厌恶资产", '、'.join(profile.get('restricted_assets', [])) or '无'),
-        ("风险偏好", profile.get('risk_tolerance', '')),
-        ("投资者类型", profile.get('investor_type', ''))
+        ("风险偏好", profile.get('risk_tolerance', ''))
     ]
-    info_table = pd.DataFrame(info_map, columns=["参数", "取值"])
-    st.table(info_table)
+    # 自定义美观表格
+    table_html = """
+    <div style='color:#6B7280;font-size:1.05rem;margin-bottom:6px;'>其他信息</div>
+    <table style='width:100%;border-collapse:collapse;'>
+    """
+    for k, v in info_map:
+        table_html += f"<tr style='border-bottom:1px solid #f3f4f6;'><td style='padding:6px 8px 6px 0;width:38%;color:#6B7280;'>{k}</td><td style='padding:6px 0 6px 8px;font-weight:600;color:#222;'>{v}</td></tr>"
+    table_html += "</table>"
+    st.markdown(table_html, unsafe_allow_html=True)
 
     # 5. 行为特征（可选，折叠）
     behavior = profile.get('behavior_metrics', {})
@@ -1070,10 +1171,12 @@ def page_home():
     profile_path = os.path.join(results_dir, 'profile_default.json')
     portfolio_path = os.path.join(results_dir, 'portfolio_default.json')
     agent_path = os.path.join(results_dir, 'agent_default.json')
+    news_path = os.path.join(results_dir, 'news_interpretation_default.json')
     # 加载数据
     profile = None
     portfolio = None
     agent = None
+    news_list = None
     if os.path.exists(profile_path):
         with open(profile_path, 'r', encoding='utf-8') as f:
             profile = json.load(f)
@@ -1083,103 +1186,177 @@ def page_home():
     if os.path.exists(agent_path):
         with open(agent_path, 'r', encoding='utf-8') as f:
             agent = json.load(f)
-    # 指标提取（兜底逻辑）
-    # 初始投资、目标金额、达标率
-    total_amt = 0
-    target_amt = 0
-    if profile:
-        total_amt = profile.get('initial_investment', 0)
-        target_amt = profile.get('target_amount', 0)
-    elif portfolio and 'optimization' in portfolio:
-        total_amt = portfolio['optimization'].get('final_amount', 0)
-        target_amt = portfolio['optimization'].get('final_amount', 0)
-    try:
-        rate = (total_amt / target_amt) if target_amt else 0
-    except:
-        rate = 0
-    # 资产配置饼图（优先profile，没有则portfolio）
-    st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-    st.markdown("#### 资产配置概览")
-    asset_allocation = profile.get('asset_allocation', {}) if profile else {}
-    if not asset_allocation and portfolio and 'optimization' in portfolio:
-        assets = portfolio['optimization'].get('assets', [])
-        weights = portfolio['optimization'].get('weights', [])
-        if assets and weights and len(assets) == len(weights):
-            asset_allocation = dict(zip(assets, weights))
-    if asset_allocation:
-        df = {
-            '资产': list(asset_allocation.keys()),
-            '配置比例': [v*100 for v in asset_allocation.values()]
-        }
-        fig = px.pie(df, names='资产', values='配置比例', title='', color_discrete_sequence=px.colors.qualitative.Set3)
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("暂无资产配置数据")
-    # 核心指标卡片（预期收益率、波动率、最大回撤）
-    exp_return = 0
-    exp_vol = 0
-    max_drawdown = 0
-    if portfolio and 'optimization' in portfolio:
-        exp_return = portfolio['optimization'].get('expected_return', 0)
-        exp_vol = portfolio['optimization'].get('expected_volatility', 0)
-        max_drawdown = portfolio['optimization'].get('max_drawdown', 0)
-    elif profile:
-        exp_return = profile.get('expected_return', 0)
-        exp_vol = profile.get('acceptable_volatility', 0)
-        max_drawdown = profile.get('max_acceptable_loss', 0)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"<div class='metric-card'><h4>初始投资</h4><h2>{total_amt:,.0f} 元</h2></div>", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"<div class='metric-card'><h4>目标金额</h4><h2>{target_amt:,.0f} 元</h2></div>", unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"<div class='metric-card'><h4>投资进度</h4><h2>{rate*100:.1f}%</h2></div>", unsafe_allow_html=True)
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        st.markdown(f"<div class='metric-card'><h4>预期收益率</h4><h2>{exp_return*100:.2f}%</h2></div>", unsafe_allow_html=True)
-    with col5:
-        st.markdown(f"<div class='metric-card'><h4>预期波动率</h4><h2>{exp_vol*100:.2f}%</h2></div>", unsafe_allow_html=True)
-    with col6:
-        st.markdown(f"<div class='metric-card'><h4>最大回撤</h4><h2>{max_drawdown*100:.2f}%</h2></div>", unsafe_allow_html=True)
-    st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-    # 三大功能区摘要
-    st.markdown("#### 功能区总览")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("<b>📈 资产优化</b>", unsafe_allow_html=True)
-        if portfolio and 'optimization' in portfolio:
-            st.markdown(f"最优配置已生成，预期收益率 {exp_return*100:.2f}%，波动率 {exp_vol*100:.2f}%。")
-        else:
-            st.markdown("暂无优化结果。")
-    with col2:
-        st.markdown("<b>🤖 Agent模拟</b>", unsafe_allow_html=True)
-        if agent and 'daily_report' in agent:
-            daily = agent['daily_report']
-            # 用extract_and_format_llm_contents处理，展示前两段或前200字
-            try:
-                contents = extract_and_format_llm_contents(daily)
-                if contents:
-                    preview = '\n'.join(contents[:2])
-                    if len(preview) > 200:
-                        preview = preview[:200] + '...'
-                    st.markdown(preview)
-                else:
-                    st.markdown("暂无投资简报内容。")
-            except Exception:
-                st.markdown("暂无投资简报内容。")
-        else:
-            st.markdown("暂无Agent模拟结果。")
-    with col3:
-        st.markdown("<b>📰 市场新闻</b>", unsafe_allow_html=True)
-        news_path = os.path.join(results_dir, 'news_interpretation_default.json')
-        if os.path.exists(news_path):
-            with open(news_path, 'r', encoding='utf-8') as f:
-                news_list = json.load(f)
-            if news_list:
-                st.markdown(news_list[0]['news'][:60]+('...' if len(news_list[0]['news'])>60 else ''))
+    if os.path.exists(news_path):
+        with open(news_path, 'r', encoding='utf-8') as f:
+            news_list = json.load(f)
+    # ========== 卡片样式 ========== #
+    CARD_STYLE = """
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    padding: 28px 24px 20px 24px;
+    margin-bottom: 24px;
+    min-height: 180px;
+    transition: box-shadow .2s;
+    """
+    # ========== 布局 ========== #
+    col_left, col_right = st.columns([1, 1])
+    # --- 左侧 --- #
+    with col_left:
+        # 左上：今日热点新闻（蓝色卡片）
+        st.markdown(f"""
+        <div style='background:#e0f2fe;border-radius:14px 14px 14px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.08);padding:28px 24px 20px 24px;margin-bottom:0;position:relative;'>
+            <div style='display:flex;align-items:center;margin-bottom:10px;'>
+                <span style='font-size:1.5rem;margin-right:10px;'>📰</span>
+                <span style='font-size:1.15rem;font-weight:600;'>今日热点新闻</span>
+            </div>
+            <div style='color:#6B7280;font-size:0.95rem;margin-bottom:8px;'>如需查看详细解读请前往新闻解读页</div>
+        """, unsafe_allow_html=True)
+        if news_list and len(news_list) > 0:
+            news_items = [item.get('news', '').strip() for item in news_list]
+            st.markdown("<ol style='font-size:1.05rem;line-height:1.7;color:#222;margin:0 0 0 18px;'>" + ''.join([f"<li style='margin-bottom:6px;'>{news}</li>" for news in news_items]) + "</ol>", unsafe_allow_html=True)
         else:
             st.markdown("暂无新闻摘要。")
+        st.markdown("</div>", unsafe_allow_html=True)
+        # 左下：智能顾问·专属动态建议（淡绿色卡片）
+        st.markdown(f"""
+        <div style='background:#dcfce7;border-radius:14px 14px 14px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.08);padding:28px 24px 20px 24px;margin-top:0;margin-bottom:24px;min-height:180px;transition:box-shadow .2s;'>
+            <div style='display:flex;align-items:center;margin-bottom:2px;'>
+                <span style='font-size:1.5rem;margin-right:10px;'>🤖</span>
+                <span style='font-size:1.15rem;font-weight:600;'>智能顾问·专属动态建议</span>
+            </div>
+            <div style='color:#6B7280;font-size:0.98rem;margin-bottom:10px;'>基于您的画像与最新市场动态智能生成</div>
+        """, unsafe_allow_html=True)
+        # 新增：大模型摘要优先展示
+        summary = None
+        if agent and 'daily_report' in agent and profile:
+            import streamlit as st
+            if 'advisor_summary' not in st.session_state:
+                with st.spinner('AI智能顾问正在为您总结专属建议...'):
+                    summary = summarize_advisor_suggestion(profile, agent['daily_report'])
+                    st.session_state['advisor_summary'] = summary
+            else:
+                summary = st.session_state['advisor_summary']
+        if summary:
+            import json
+            try:
+                suggestions = json.loads(summary)
+                if isinstance(suggestions, list) and all(isinstance(item, dict) and '建议' in item for item in suggestions):
+                    st.markdown("<ol style='font-size:1.08rem;line-height:1.7;color:#222;margin:0 0 0 18px;'>" + ''.join([f"<li style='margin-bottom:6px;'>{item['建议']}</li>" for item in suggestions]) + "</ol>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<div style='color:#991b1b;'>AI建议解析失败，请稍后重试。</div>", unsafe_allow_html=True)
+            except Exception:
+                st.markdown("<div style='color:#991b1b;'>AI建议解析失败，请稍后重试。</div>", unsafe_allow_html=True)
+        else:
+            # 兜底：原有关键词筛选逻辑
+            if agent and 'daily_report' in agent:
+                try:
+                    contents = extract_and_format_llm_contents(agent['daily_report'])
+                    keywords = ['建议', '配置', '投资方案']
+                    filtered = [c for c in contents if any(k in c for k in keywords)]
+                    if filtered:
+                        preview = '\n'.join(filtered[:2])
+                        if len(preview) > 200:
+                            preview = preview[:200] + '...'
+                        st.markdown(preview)
+                    else:
+                        st.markdown("<span style='color:#6B7280;'>暂无个性化投资建议</span>", unsafe_allow_html=True)
+                except Exception:
+                    st.markdown("<span style='color:#6B7280;'>暂无个性化投资建议</span>", unsafe_allow_html=True)
+            else:
+                st.markdown("<span style='color:#6B7280;'>暂无个性化投资建议</span>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    # --- 右侧 --- #
+    with col_right:
+        # 右上：资产配置
+        st.markdown(f"""
+        <div style='background:#fff;border-radius:14px 14px 14px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.08);padding:28px 24px 20px 24px;margin-bottom:24px;'>
+            <div style='display:flex;align-items:center;margin-bottom:10px;'>
+                <span style='font-size:1.5rem;margin-right:10px;'>💹</span>
+                <span style='font-size:1.25rem;font-weight:600;'>资产配置</span>
+            </div>
+        """, unsafe_allow_html=True)
+        asset_allocation = profile.get('asset_allocation', {}) if profile else {}
+        if asset_allocation:
+            df = {
+                '资产': list(asset_allocation.keys()),
+                '配置比例': [v*100 for v in asset_allocation.values()]
+            }
+            fig = px.pie(df, names='资产', values='配置比例', title='', color_discrete_sequence=px.colors.qualitative.Set3)
+            fig.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("暂无资产配置数据")
+        st.markdown("</div>", unsafe_allow_html=True)
+        # 右下：用户画像（可下拉展开，默认收起）
+        with st.expander('👤 用户画像', expanded=False):
+            st.markdown(f"""
+            <div style='background:#fff;border-radius:14px 14px 14px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.08);padding:28px 24px 20px 24px;margin-top:0;'>
+            """, unsafe_allow_html=True)
+            if profile:
+                total_amt = profile.get('initial_investment', 0)
+                target_amt = profile.get('target_amount', 0)
+                try:
+                    rate = (total_amt / target_amt) if target_amt else 0
+                except:
+                    rate = 0
+                exp_return = portfolio['optimization'].get('expected_return', 0) if portfolio and 'optimization' in portfolio else 0
+                exp_vol = portfolio['optimization'].get('expected_volatility', 0) if portfolio and 'optimization' in portfolio else profile.get('acceptable_volatility', 0)
+                max_drawdown = portfolio['optimization'].get('max_drawdown', 0) if portfolio and 'optimization' in portfolio else profile.get('max_acceptable_loss', 0)
+                # 六大指标2行3列排版
+                st.markdown(f"""
+                <div style='width:100%;display:flex;flex-direction:column;gap:0;margin-bottom:18px;'>
+                  <div style='display:flex;gap:0;'>
+                    <div style='flex:1;min-width:0;text-align:center;'>
+                      <div style='color:#6B7280;font-size:0.98rem;'>初始投资</div>
+                      <div style='font-size:1.35rem;font-weight:700;'>{total_amt:,.0f} 元</div>
+                    </div>
+                    <div style='flex:1;min-width:0;text-align:center;'>
+                      <div style='color:#6B7280;font-size:0.98rem;'>目标金额</div>
+                      <div style='font-size:1.35rem;font-weight:700;'>{target_amt:,.0f} 元</div>
+                    </div>
+                    <div style='flex:1;min-width:0;text-align:center;'>
+                      <div style='color:#6B7280;font-size:0.98rem;'>投资进度</div>
+                      <div style='font-size:1.35rem;font-weight:700;'>{rate*100:.1f}%</div>
+                    </div>
+                  </div>
+                  <div style='display:flex;gap:0;margin-top:8px;'>
+                    <div style='flex:1;min-width:0;text-align:center;'>
+                      <div style='color:#6B7280;font-size:0.98rem;'>预期收益率</div>
+                      <div style='font-size:1.35rem;font-weight:700;'>{exp_return*100:.2f}%</div>
+                    </div>
+                    <div style='flex:1;min-width:0;text-align:center;'>
+                      <div style='color:#6B7280;font-size:0.98rem;'>预期波动率</div>
+                      <div style='font-size:1.35rem;font-weight:700;'>{exp_vol*100:.2f}%</div>
+                    </div>
+                    <div style='flex:1;min-width:0;text-align:center;'>
+                      <div style='color:#6B7280;font-size:0.98rem;'>最大回撤</div>
+                      <div style='font-size:1.35rem;font-weight:700;'>{max_drawdown*100:.2f}%</div>
+                    </div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+                # 其他信息表格加回
+                st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+                info_map = [
+                    ("投资目的", profile.get('investment_purpose', '')), 
+                    ("流动性要求", profile.get('liquidity_requirement', '')), 
+                    ("允许杠杆", '是' if profile.get('leverage_allowed', False) else '否'),
+                    ("最大可接受回撤", f"{profile.get('max_acceptable_loss',0)*100:.1f}%"),
+                    ("厌恶资产", '、'.join(profile.get('restricted_assets', [])) or '无'),
+                    ("风险偏好", profile.get('risk_tolerance', ''))
+                ]
+                table_html = """
+                <div style='color:#6B7280;font-size:1.05rem;margin-bottom:6px;'>其他信息</div>
+                <table style='width:100%;border-collapse:collapse;'>
+                """
+                for k, v in info_map:
+                    table_html += f"<tr style='border-bottom:1px solid #f3f4f6;'><td style='padding:6px 8px 6px 0;width:38%;color:#6B7280;'>{k}</td><td style='padding:6px 0 6px 8px;font-weight:600;color:#222;'>{v}</td></tr>"
+                table_html += "</table>"
+                st.markdown(table_html, unsafe_allow_html=True)
+            else:
+                st.info("暂无用户画像数据")
+            st.markdown("</div>", unsafe_allow_html=True)
     # 风险提示
     st.markdown("<hr style='margin:16px 0;'>", unsafe_allow_html=True)
     st.markdown("<div style='color:#991b1b;font-size:1.05rem;text-align:center;padding:10px 0 0 0;'>⚠️ 投资有风险，决策需谨慎。市场有不确定性，建议结合自身风险承受能力理性决策。</div>", unsafe_allow_html=True)
@@ -1197,11 +1374,13 @@ def render_portfolio_optimization_result(opt_result, mcp_data=None):
     exp_vol = opt_result.get('expected_volatility', 0)
     final_amt = opt_result.get('final_amount', 0)
     max_drawdown = opt_result.get('max_drawdown', 0)
-    # MCP数据表
+    # MCP数据表 - 显示为note形式
     if mcp_data and isinstance(mcp_data, dict) and mcp_data:
         try:
-            st.write("📌 **预测数据及来源**")
-            st.table(pd.DataFrame(mcp_data))
+            with st.expander("ℹ️ 预测数据来源", expanded=False):
+                df = pd.DataFrame(mcp_data)
+                for _, row in df.iterrows():
+                    st.markdown(f"- {row['资产类别']}: [{row['预期收益率']}]({row['信息来源']})")
         except Exception:
             pass
     # 饼图
@@ -1229,6 +1408,55 @@ def render_portfolio_optimization_result(opt_result, mcp_data=None):
     # 原始JSON可选折叠
     with st.expander("查看原始优化结果JSON", expanded=False):
         st.json(opt_result)
+
+# 新增：大模型摘要函数
+def summarize_advisor_suggestion(profile, daily_report, api_key=None, api_base=None, model="deepseek-chat", max_tokens=512):
+    """调用大模型API对daily_report和profile生成精炼摘要，输出严格JSON格式"""
+    prompt = f"""
+你是专业的智能理财顾问。请根据以下【用户画像】和【对话内容】，为该用户生成最多5条最重要的投资建议。输出格式必须为严格的JSON数组，每条建议为一个对象，字段名为"建议"，不要输出任何多余内容、标题或说明，也不要输出代码块标记。
+
+【用户画像】
+{profile}
+
+【对话内容】
+{daily_report}
+
+【输出格式示例】
+[
+  {{"建议": "建议一..."}},
+  {{"建议": "建议二..."}}
+]
+"""
+    if api_key is None or api_base is None:
+        try:
+            from config import OPENAI_API_KEY, OPENAI_API_BASE
+            api_key = api_key or OPENAI_API_KEY
+            api_base = api_base or OPENAI_API_BASE
+        except Exception:
+            return None
+    url = f"{api_base}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": model,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": max_tokens,
+        "temperature": 0.5
+    }
+    try:
+        resp = requests.post(url, headers=headers, json=data, timeout=60)
+        resp.raise_for_status()
+        result = resp.json()
+        content = result["choices"][0]["message"]["content"]
+        return content.strip()
+    except Exception as e:
+        import streamlit as st
+        st.write(f"[DEBUG] 大模型摘要API异常: {e}")
+        return None
 
 if __name__ == "__main__":
     main()
