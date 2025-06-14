@@ -513,7 +513,7 @@ def page_market_news():
     import streamlit as st
     import os
     import json
-    st.markdown('<div class="main-title">📰 市场新闻与解读</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title" style="font-size:2.1rem;font-weight:700;margin-bottom:18px;">Voyager • NewsCrawler</div>', unsafe_allow_html=True)
     # 顶部加今日日期
     today = datetime.date.today().strftime('%Y-%m-%d')
     st.markdown(f"<div style='font-size:1.1rem;color:#6B7280;margin-bottom:10px;'>今日日期：{today}</div>", unsafe_allow_html=True)
@@ -565,10 +565,13 @@ def page_market_news():
         news = item.get('news', '').strip()
         interp = item.get('interpretation', '').strip()
         url = item.get('url', '').strip()
-        with st.expander(news, expanded=False):
-            st.markdown(f"<div class='stCard' style='background:#f3f4f6;'><b>个性化解读：</b>{interp}</div>", unsafe_allow_html=True)
-            if url:
-                st.markdown(f"<div style='margin-top:8px;'><a href='{url}' target='_blank' style='color:#2563eb;'>🔗 原文链接</a></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='stCard' style='background:#f3f4f6;margin-bottom:18px;'>
+            <div style='font-weight:600;font-size:1.08rem;margin-bottom:6px;'>{news}</div>
+            <div style='color:#2563eb;font-weight:500;margin-bottom:4px;'><b>个性化解读：</b>{interp}</div>
+            {f"<div style='margin-top:8px;'><a href='{url}' target='_blank' style='color:#2563eb;'>🔗 原文链接</a></div>" if url else ''}
+        </div>
+        """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Core Streamlit tabs
@@ -577,21 +580,43 @@ def page_market_news():
 def main():
     """主函数"""
     try:
-        # 设置页面标题和Logo
-        st.markdown("""
-        <div style='text-align: center; padding: 20px;'>
-            <h1>WealthVoyager AI 投资助手</h1>
-            <p>智能投资决策支持系统</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
         # 侧边栏页面选择
         page = st.sidebar.radio(
             "选择功能",
             ["🏠 首页", "📈α 收益工坊", "🤖双智投对话引擎", "📰 市场新闻与解读"],
             index=0
         )
-        
+
+        # 顶部主标题区
+        if page == "🏠 首页":
+            st.markdown("""
+            <div style='text-align: center; padding: 32px 0 18px 0;'>
+                <h1 style='font-size:2.3rem;font-weight:800;margin-bottom:8px;'>WealthVoyager AI 投资助手</h1>
+                <div style='color:#374151;font-size:1.18rem;font-weight:500;'>智能投资决策支持系统</div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif page == "📈α 收益工坊":
+            st.markdown("""
+            <div style='text-align: center; padding: 32px 0 18px 0;'>
+                <h1 style='font-size:2.3rem;font-weight:800;margin-bottom:8px;'>Voyager • AlphaForge</h1>
+                <div style='color:#374151;font-size:1.13rem;font-weight:500;'>智能资产配置与收益优化工坊</div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif page == "🤖双智投对话引擎":
+            st.markdown("""
+            <div style='text-align: center; padding: 32px 0 18px 0;'>
+                <h1 style='font-size:2.3rem;font-weight:800;margin-bottom:8px;'>Voyager • DualAdvisor</h1>
+                <div style='color:#374151;font-size:1.13rem;font-weight:500;'>AI双智能顾问对话与模拟</div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif page == "📰 市场新闻与解读":
+            st.markdown("""
+            <div style='text-align: center; padding: 32px 0 18px 0;'>
+                <h1 style='font-size:2.3rem;font-weight:800;margin-bottom:8px;'>Voyager • NewsCrawler</h1>
+                <div style='color:#374151;font-size:1.13rem;font-weight:500;'>市场新闻智能解读与个性化分析</div>
+            </div>
+            """, unsafe_allow_html=True)
+
         # 根据选择渲染对应页面
         if page == "🏠 首页":
             page_home()
@@ -601,7 +626,7 @@ def main():
             page_agent_simulation()
         else:
             page_market_news()
-            
+        
     except Exception as e:
         logger.error(f"主程序运行失败: {str(e)}")
         st.error("程序运行出错，请刷新页面重试")
@@ -652,7 +677,7 @@ def main():
 def page_portfolio_optimization():
     """投资组合优化页面"""
     try:
-        st.markdown('<div class="main-title">📈 投资组合优化</div>', unsafe_allow_html=True)
+        st.markdown('<div class="main-title" style="font-size:2.1rem;font-weight:700;margin-bottom:18px;">Voyager • AlphaForge</div>', unsafe_allow_html=True)
         
         # 初始化会话状态
         if "conversation_id" not in st.session_state:
@@ -1115,7 +1140,7 @@ def extract_and_format_llm_contents(obj):
 def page_agent_simulation():
     """智能对话/Agent模拟页面"""
     try:
-        st.markdown('<div class="main-title">🤖 智能对话 / Agent模拟</div>', unsafe_allow_html=True)
+        st.markdown('<div class="main-title" style="font-size:2.1rem;font-weight:700;margin-bottom:18px;">Voyager • DualAdvisor</div>', unsafe_allow_html=True)
         # 每次都强制从本地读取profile（base_config），保证与profile_default.json同步
         loaded_profile = load_result('profile')
         if loaded_profile:
