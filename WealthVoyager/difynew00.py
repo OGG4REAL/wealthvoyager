@@ -743,22 +743,20 @@ def page_portfolio_optimization():
             with st.expander("展开历史记录", expanded=False):
                 if history:
                     for msg in history:
-                        user_input = msg.get("input", "")
-                        bot_resp = msg.get("response", "")
-                        # 用户气泡
-                        st.markdown(
-                            f"<div style='text-align:left;margin-bottom:8px;'>"
-                            f"<span style='display:inline-block;background:#2563eb;color:#fff;padding:7px 16px;border-radius:16px;font-size:1rem;max-width:80%;word-break:break-all;'>我：{user_input}</span>"
-                            "</div>",
-                            unsafe_allow_html=True,
-                        )
-                        # 客服气泡
-                        st.markdown(
-                            f"<div style='text-align:right;margin-bottom:8px;'>"
-                            f"<span style='display:inline-block;background:#10b981;color:#fff;padding:7px 16px;border-radius:16px;font-size:1rem;max-width:80%;word-break:break-all;'>AssistHub：{bot_resp}</span>"
-                            "</div>",
-                            unsafe_allow_html=True,
-                        )
+                        if msg.get('role') == 'user':
+                            st.markdown(
+                                f"<div style='text-align:left;margin-bottom:8px;'>"
+                                f"<span style='display:inline-block;background:#2563eb;color:#fff;padding:7px 16px;border-radius:16px;font-size:1rem;max-width:80%;word-break:break-all;'>我：{msg.get('content','')}</span>"
+                                "</div>",
+                                unsafe_allow_html=True,
+                            )
+                        elif msg.get('role') == 'assistant':
+                            st.markdown(
+                                f"<div style='text-align:right;margin-bottom:8px;'>"
+                                f"<span style='display:inline-block;background:#10b981;color:#fff;padding:7px 16px;border-radius:16px;font-size:1rem;max-width:80%;word-break:break-all;'>AssistHub：{msg.get('content','')}</span>"
+                                "</div>",
+                                unsafe_allow_html=True,
+                            )
                 else:
                     st.markdown("<div style='color:#6B7280;text-align:center;'>暂无历史对话</div>", unsafe_allow_html=True)
 
@@ -1628,7 +1626,7 @@ def get_dify_conversation_history(conversation_id):
     import requests
     from config import DIFY_API_KEY
     try:
-        api_url = f"https://api.dify.ai/v1/conversations/{conversation_id}/messages"
+        api_url = f"https://api.dify.ai/v1/messages?conversation_id={conversation_id}&user=abc-123"
         headers = {
             'Authorization': f'Bearer {DIFY_API_KEY}',
             'Content-Type': 'application/json',
@@ -1636,12 +1634,13 @@ def get_dify_conversation_history(conversation_id):
         resp = requests.get(api_url, headers=headers, timeout=20)
         resp.raise_for_status()
         data = resp.json()
-        # 兼容 Dify API 返回格式，提取消息内容
+        # 解析消息列表，按 query/answer 轮次拼接
         messages = []
         for item in data.get('data', []):
-            role = item.get('role', 'user')
-            content = item.get('content', '')
-            messages.append({'role': role, 'content': content})
+            if item.get('query'):
+                messages.append({'role': 'user', 'content': item['query']})
+            if item.get('answer'):
+                messages.append({'role': 'assistant', 'content': item['answer']})
         return messages
     except Exception as e:
         logger.error(f"拉取 Dify 对话历史失败: {e}")
