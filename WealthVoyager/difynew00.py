@@ -565,11 +565,13 @@ def page_market_news():
         news = item.get('news', '').strip()
         interp = item.get('interpretation', '').strip()
         url = item.get('url', '').strip()
+        interp_html = f"<div style='color:#2563eb;font-size:0.98rem;font-weight:500;margin-bottom:2px;'><b>个性化解读：</b>{interp}</div>" if interp else ""
+        url_html = f"<div style='margin-top:6px;'><a href='{url}' target='_blank' style='color:#2563eb;font-size:0.95rem;'>🔗 原文链接</a></div>" if url else ""
         st.markdown(f"""
-        <div class='stCard' style='background:#f3f4f6;margin-bottom:18px;'>
-            <div style='font-weight:600;font-size:1.08rem;margin-bottom:6px;'>{news}</div>
-            <div style='color:#2563eb;font-weight:500;margin-bottom:4px;'><b>个性化解读：</b>{interp}</div>
-            {f"<div style='margin-top:8px;'><a href='{url}' target='_blank' style='color:#2563eb;'>🔗 原文链接</a></div>" if url else ''}
+        <div class='stCard' style='background:#f3f4f6;margin-bottom:14px;padding:16px 18px 12px 18px;border-radius:10px;'>
+            <div style='font-weight:600;font-size:1.05rem;margin-bottom:4px;color:#222;'>{news}</div>
+            {interp_html}
+            {url_html}
         </div>
         """, unsafe_allow_html=True)
 
@@ -1013,6 +1015,10 @@ def page_portfolio_optimization():
                             profile['assets'] = user_assets
                             profile['current_allocation'] = [round(w, 6) for w in weights]
                             profile['asset_allocation'] = {a: round(w, 6) for a, w in zip(user_assets, weights)}
+                            # 新增：同步目标金额、投资年限、初始资金
+                            for k in ['target_amount', 'investment_years', 'initial_investment']:
+                                if k in selected_config:
+                                    profile[k] = selected_config[k]
                             with open(profile_path, 'w', encoding='utf-8') as f:
                                 json.dump(profile, f, ensure_ascii=False, indent=2)
                             print('[DEBUG] profile同步后:', profile)
@@ -1091,8 +1097,28 @@ def render_user_profile(profile: dict):
     # 5. 行为特征（可选，折叠）
     behavior = profile.get('behavior_metrics', {})
     if behavior:
+        # 英文key转中文
+        behavior_name_map = {
+            "loss_aversion": "损失厌恶",
+            "news_policy_sensitivity": "政策敏感度",
+            "investment_experience": "投资经验",
+            "real_time_emotion": "情绪波动",
+            "herding_tendency": "从众倾向",
+            "regret_aversion": "懊悔厌恶",
+            "overconfidence": "过度自信",
+            "illusion_of_control": "控制错觉",
+            "decision_delay": "决策拖延"
+        }
         with st.expander("行为特征（可选）", expanded=False):
-            beh_df = pd.DataFrame(list(behavior.items()), columns=["特征", "分值"])
+            import pandas as pd
+            beh_df = pd.DataFrame([
+                {
+                    "特征": behavior_name_map.get(k, k),
+                    "分值": f"{round(v, 1)}"
+                }
+                for k, v in behavior.items()
+            ])
+            beh_df.index = [''] * len(beh_df)  # 关键：去掉index显示
             st.table(beh_df)
 
 def extract_and_format_llm_contents(obj):
@@ -1238,8 +1264,19 @@ def page_home():
             <div style='color:#6B7280;font-size:0.95rem;margin-bottom:8px;'>如需查看详细解读请前往新闻解读页</div>
         """, unsafe_allow_html=True)
         if news_list and len(news_list) > 0:
-            news_items = [item.get('news', '').strip() for item in news_list]
-            st.markdown("<ol style='font-size:1.05rem;line-height:1.7;color:#222;margin:0 0 0 18px;'>" + ''.join([f"<li style='margin-bottom:6px;'>{news}</li>" for news in news_items]) + "</ol>", unsafe_allow_html=True)
+            for item in news_list:
+                news = item.get('news', '').strip()
+                interp = item.get('interpretation', '').strip()
+                url = item.get('url', '').strip()
+                interp_html = f"<div style='color:#2563eb;font-size:0.98rem;font-weight:500;margin-bottom:2px;'><b>个性化解读：</b>{interp}</div>" if interp else ""
+                url_html = f"<div style='margin-top:6px;'><a href='{url}' target='_blank' style='color:#2563eb;font-size:0.95rem;'>🔗 原文链接</a></div>" if url else ""
+                st.markdown(f"""
+                <div class='stCard' style='background:#f3f4f6;margin-bottom:14px;padding:16px 18px 12px 18px;border-radius:10px;'>
+                    <div style='font-weight:600;font-size:1.05rem;margin-bottom:4px;color:#222;'>{news}</div>
+                    {interp_html}
+                    {url_html}
+                </div>
+                """, unsafe_allow_html=True)
         else:
             st.markdown("暂无新闻摘要。")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -1313,6 +1350,20 @@ def page_home():
         else:
             st.info("暂无资产配置数据")
         st.markdown("</div>", unsafe_allow_html=True)
+        # 新增：用户画像三句话总结（卡片）
+        if profile:
+            if 'profile_brief' not in st.session_state:
+                with st.spinner('AI正在为您总结用户画像...'):
+                    brief = summarize_user_profile_brief(profile)
+                    st.session_state['profile_brief'] = brief
+            else:
+                brief = st.session_state['profile_brief']
+            if brief:
+                st.markdown(f"""
+                <div style='background:#f3f4f6;border-radius:12px;padding:18px 18px 12px 18px;margin-bottom:10px;box-shadow:0 2px 8px rgba(59,130,246,0.06);font-size:1.08rem;line-height:1.9;color:#222;'>
+                {brief.replace('\n', '<br>')}
+                </div>
+                """, unsafe_allow_html=True)
         # 右下：用户画像（可下拉展开，默认收起）
         with st.expander('👤 用户画像', expanded=False):
             st.markdown(f"""
@@ -1392,9 +1443,13 @@ def render_portfolio_optimization_result(opt_result, mcp_data=None):
     import streamlit as st
     import plotly.express as px
     import pandas as pd
+    import numpy as np
     # 资产、权重
     assets = opt_result.get('assets', [])
     weights = opt_result.get('weights', [])
+    # 修复：确保 weights 是 list
+    if isinstance(weights, np.ndarray):
+        weights = weights.tolist()
     exp_return = opt_result.get('expected_return', 0)
     exp_vol = opt_result.get('expected_volatility', 0)
     final_amt = opt_result.get('final_amount', 0)
@@ -1481,6 +1536,83 @@ def summarize_advisor_suggestion(profile, daily_report, api_key=None, api_base=N
     except Exception as e:
         import streamlit as st
         st.write(f"[DEBUG] 大模型摘要API异常: {e}")
+        return None
+
+# 新增：用户画像三句话总结（deepseek大模型）
+def summarize_user_profile_brief(profile, api_key=None, api_base=None, model="deepseek-chat", max_tokens=256):
+    """调用大模型API对用户画像生成三句话总结，分别为投资目标、财富状况、风险偏好，风格通俗友好。"""
+    prompt = f"""
+<task>用生活化语言总结用户的投资目标、财富状况和风险偏好</task>
+
+<context>
+请用通俗、生活化、非专业的语言，分别用一句话总结用户的投资目标、财富状况和风险偏好。每句话要像理财顾问和客户交流时的表达，不要直接罗列数据或字段，可以适当归纳和润色，让内容简明友好、易于理解。
+【用户画像】
+{profile}
+【输出格式示例】
+投资目标：希望8年后顺利退休，资产实现稳步增长。
+财富状况：目前拥有较为充裕的可投资资产，整体财务状况乐观。
+风险偏好：倾向于稳健中求进，愿意承担适度风险以追求财富增长。
+</context>
+
+<instructions>
+1. 分析用户画像数据，提取关键信息：
+   - 投资目标相关要素：如退休年限、资产增值需求等
+   - 财富状况核心指标：可投资资产规模、负债情况等
+   - 风险偏好表现：历史投资行为、风险承受问卷结果等
+2. 用自然对话语言转述关键信息：
+   - 避免专业术语，使用"存钱""过日子"等生活化表达
+   - 保持理财顾问对客户说话的语气，如"您目前..."
+   - 每类总结限一句话，不超过30字
+3. 参照输出格式示例进行润色：
+   - 投资目标：突出时间规划和期望效果
+   - 财富状况：描述当前资金充裕程度
+   - 风险偏好：说明风险承受态度和期望回报
+4. 确保内容简明友好：
+   - 用积极词汇如"稳步""乐观""适度"
+   - 避免数字和金融术语
+   - 保持语句流畅自然
+</instructions>
+
+<output_format>
+输出必须严格按以下三行格式：
+投资目标：[通俗总结语句]
+财富状况：[通俗总结语句]
+风险偏好：[通俗总结语句]
+示例：
+投资目标：打算10年后安心退休，让存款慢慢变多。
+财富状况：手头闲钱不少，没什么债务压力。
+风险偏好：想稳当赚钱，也能接受小波动。
+</output_format>
+"""
+    if api_key is None or api_base is None:
+        try:
+            from config import OPENAI_API_KEY, OPENAI_API_BASE
+            api_key = api_key or OPENAI_API_KEY
+            api_base = api_base or OPENAI_API_BASE
+        except Exception:
+            return None
+    url = f"{api_base}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": model,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": max_tokens,
+        "temperature": 0.4
+    }
+    try:
+        resp = requests.post(url, headers=headers, json=data, timeout=60)
+        resp.raise_for_status()
+        result = resp.json()
+        content = result["choices"][0]["message"]["content"]
+        return content.strip()
+    except Exception as e:
+        import streamlit as st
+        st.write(f"[DEBUG] 用户画像三句话API异常: {e}")
         return None
 
 if __name__ == "__main__":
