@@ -1623,5 +1623,29 @@ def summarize_user_profile_brief(profile, api_key=None, api_base=None, model="de
         st.write(f"[DEBUG] 用户画像三句话API异常: {e}")
         return None
 
+def get_dify_conversation_history(conversation_id):
+    """通过 Dify API 拉取指定 conversation_id 的全部历史消息"""
+    import requests
+    from config import DIFY_API_KEY
+    try:
+        api_url = f"https://api.dify.ai/v1/conversations/{conversation_id}/messages"
+        headers = {
+            'Authorization': f'Bearer {DIFY_API_KEY}',
+            'Content-Type': 'application/json',
+        }
+        resp = requests.get(api_url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+        # 兼容 Dify API 返回格式，提取消息内容
+        messages = []
+        for item in data.get('data', []):
+            role = item.get('role', 'user')
+            content = item.get('content', '')
+            messages.append({'role': role, 'content': content})
+        return messages
+    except Exception as e:
+        logger.error(f"拉取 Dify 对话历史失败: {e}")
+        return None
+
 if __name__ == "__main__":
     main()
