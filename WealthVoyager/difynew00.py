@@ -705,19 +705,27 @@ def page_portfolio_optimization():
         with col1:
             import os
             import json
-            log_path = os.path.join(os.path.dirname(__file__), "conversation_log.json")
+            # 优先用 Dify API 获取历史
+            conversation_id = st.session_state.get('conversation_id', None)
             history = []
-            if os.path.exists(log_path):
-                try:
-                    with open(log_path, "r", encoding="utf-8") as f:
-                        log_data = json.load(f)
-                    if isinstance(log_data, list) and log_data:
-                        latest_id = log_data[-1].get("conversation_id", None)
-                        history = [item for item in log_data if item.get("conversation_id") == latest_id]
-                except Exception as e:
-                    history = [{"role": "系统", "content": f"读取对话历史失败: {e}"}]
-            else:
-                history = [{"role": "系统", "content": "未找到对话历史文件"}]
+            if conversation_id:
+                api_history = get_dify_conversation_history(conversation_id)
+                if api_history:
+                    history = api_history
+            # fallback 到本地文件方案
+            if not history:
+                log_path = os.path.join(os.path.dirname(__file__), "conversation_log.json")
+                if os.path.exists(log_path):
+                    try:
+                        with open(log_path, "r", encoding="utf-8") as f:
+                            log_data = json.load(f)
+                        if isinstance(log_data, list) and log_data:
+                            latest_id = log_data[-1].get("conversation_id", None)
+                            history = [item for item in log_data if item.get("conversation_id") == latest_id]
+                    except Exception as e:
+                        history = [{"role": "系统", "content": f"读取对话历史失败: {e}"}]
+                else:
+                    history = [{"role": "系统", "content": "未找到对话历史文件"}]
 
             st.markdown("""
             <div style='background:#fff;border-radius:14px;padding:20px 18px 16px 18px;box-shadow:0 4px 16px rgba(0,0,0,0.08);margin-bottom:20px;'>
