@@ -1,0 +1,52 @@
+{
+  "investment_purpose": "退休养老",
+  "target_amount": 4500000,
+  "initial_investment": 3000000,
+  "investment_years": 8,
+  "acceptable_volatility": 0.22,
+  "max_acceptable_loss": 0.3,
+  "assets": [
+    "A股",
+    "债券",
+    "REITs",
+    "港股",
+    "美股",
+    "黄金",
+    "大宗商品"
+  ],
+  "current_allocation": [
+    0.040404,
+    0.040404,
+    0.242424,
+    0.060606,
+    0.373737,
+    0.20202,
+    0.040404
+  ],
+  "liquidity_requirement": "medium",
+  "leverage_allowed": true,
+  "restricted_assets": [],
+  "investor_type": "购房置业",
+  "risk_tolerance": "Medium",
+  "success_threshold": 0.6,
+  "behavior_metrics": {
+    "loss_aversion": 0.3,
+    "news_policy_sensitivity": 0.8,
+    "investment_experience": 0.6,
+    "real_time_emotion": 0.5,
+    "herding_tendency": 0.7,
+    "regret_aversion": 0.3,
+    "overconfidence": 0.8,
+    "illusion_of_control": 0.7,
+    "decision_delay": 0.3
+  },
+  "asset_allocation": {
+    "A股": 0.040404,
+    "债券": 0.040404,
+    "REITs": 0.242424,
+    "港股": 0.060606,
+    "美股": 0.373737,
+    "黄金": 0.20202,
+    "大宗商品": 0.040404
+  }
+}
