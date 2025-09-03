@@ -394,7 +394,9 @@ def process_investment_request(base_config: Dict[str, Any], user_assets: List[st
 
 # ========== 结果保存/读取机制 ========== #
 # 结果文件目录
-results_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'results'))
+results_dir = os.environ.get("RESULTS_DIR", "/tmp/results")
+if not os.path.isabs(results_dir):
+    results_dir = os.path.abspath(results_dir)
 os.makedirs(results_dir, exist_ok=True)
 
 def get_result_path(page: str, session_id: str = 'default') -> str:
@@ -1223,7 +1225,8 @@ def page_home():
     today = datetime.date.today().strftime('%Y-%m-%d')
     st.markdown(f"<div style='font-size:1.1rem;color:#6B7280;margin-bottom:10px;'>今日日期：{today}</div>", unsafe_allow_html=True)
     # 读取用户画像和资产优化结果
-    results_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'results'))
+    results_dir = os.environ.get("RESULTS_DIR", "/tmp/results")
+    os.makedirs(results_dir, exist_ok=True)
     profile_path = os.path.join(results_dir, 'profile_default.json')
     portfolio_path = os.path.join(results_dir, 'portfolio_default.json')
     agent_path = os.path.join(results_dir, 'agent_default.json')
