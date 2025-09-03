@@ -124,173 +124,196 @@ def parse_structured_block(text):
             result[k.strip()] = v.strip()
     return result
 
-def extract_last_entry(conversation_id): 
-    print(f"DEBUG - 开始提取对话信息，conversation_id: {conversation_id}")
-    if os.path.exists(CONVERSATION_LOG_FILE):
-        if os.path.getsize(CONVERSATION_LOG_FILE) == 0:
-            print(f"DEBUG - 对话日志文件为空: {CONVERSATION_LOG_FILE}")
-            return {}
-        print(f"DEBUG - 找到对话日志文件: {CONVERSATION_LOG_FILE}")
-        with open(CONVERSATION_LOG_FILE, "r", encoding="utf-8") as file:
-            input_data = json.load(file)
-        print(f"DEBUG - 日志文件中共有 {len(input_data)} 条记录")
-        user_entries = [entry for entry in input_data if entry.get("conversation_id") == conversation_id]
-        print(f"DEBUG - 当前会话中有 {len(user_entries)} 条记录")
-        if user_entries:
-            last_entry = user_entries[-1]
-            print(f"DEBUG - 获取最后一条记录的时间戳: {last_entry.get('timestamp', '未知')}")
-            response_data = last_entry.get("response_data", {})
-            if response_data is None:
-                response_data = {}
-                print("DEBUG - response_data 为空，使用空字典")
-            answer = response_data.get("answer", "")
-            print(f"DEBUG - 获取到的回答长度: {len(answer)} 字符")
-            print(f"DEBUG - 回答前100字符: {answer[:100]}...")
-            data = {}
-            # 提取信息
-            print("DEBUG - 开始提取关键信息")
-            for line in answer.split("\n"):
-                if "：" not in line:
-                    continue
-                parts = line.split("：")
-                if len(parts) < 2:
-                    continue
-                key = parts[0].strip()
-                value_str = parts[1].strip()
-                print(f"DEBUG - 提取到键值对: {key} = {value_str}")
-                if key == "目标金额":
-                    try:
-                        data["目标金额"] = int(value_str)
-                        print(f"DEBUG - 成功提取目标金额: {data['目标金额']}")
-                    except ValueError:
-                        data["目标金额"] = 0
-                        print(f"DEBUG - 目标金额转换失败，使用默认值: 0")
-                elif key == "投资年限":
-                    try:
-                        data["投资年限"] = int(value_str)
-                        print(f"DEBUG - 成功提取投资年限: {data['投资年限']}")
-                    except ValueError:
-                        data["投资年限"] = 0
-                        print(f"DEBUG - 投资年限转换失败，使用默认值: 0")
-                elif key == "初始资金":
-                    try:
-                        data["初始资金"] = int(value_str)
-                        print(f"DEBUG - 成功提取初始资金: {data['初始资金']}")
-                    except ValueError:
-                        data["初始资金"] = 0
-                        print(f"DEBUG - 初始资金转换失败，使用默认值: 0")
-                elif key == "可接受的资产波动率":
-                    try:
-                        data["可接受的资产波动率"] = float(value_str)
-                        print(f"DEBUG - 成功提取可接受的资产波动率: {data['可接受的资产波动率']}")
-                    except ValueError:
-                        data["可接受的资产波动率"] = 0.0
-                        print(f"DEBUG - 可接受的资产波动率转换失败，使用默认值: 0.0")
-                elif key == "成功概率":
-                    try:
-                        if "%" in value_str:
-                            value_float = float(value_str.replace("%", "")) / 100
-                        else:
-                            value_float = float(value_str)
-                        data["成功概率"] = value_float
-                        print(f"DEBUG - 成功提取成功概率: {data['成功概率']}")
-                    except ValueError:
-                        data["成功概率"] = 0.0
-                        print(f"DEBUG - 成功概率转换失败，使用默认值: 0.0")
-                elif key == "投资目的":
-                    data["投资目的"] = value_str
-                elif key == "最大可接受回撤":
-                    try:
-                        data["最大可接受回撤"] = float(value_str.replace("%", ""))/100 if "%" in value_str else float(value_str)
-                    except ValueError:
-                        data["最大可接受回撤"] = 0.3
-                elif key == "流动性要求":
-                    data["流动性要求"] = value_str.lower()
-                elif key == "允许杠杆":
-                    data["允许杠杆"] = value_str.lower() in ["是", "yes", "true"]
-                elif key == "厌恶资产":
-                    data["厌恶资产"] = [x.strip() for x in value_str.split(",") if x.strip()]
-                elif key == "用户类型":
-                    data["用户类型"] = value_str
-                elif key == "风险偏好":
-                    data["风险偏好"] = value_str.capitalize()
-                elif key == "风险评估类型":
-                    data["风险评估类型"] = value_str
-            # 提取资产类别
-            print("DEBUG - 开始提取资产类别")
-            assets_match = re.search(r"资产类别\s*[:：]\s*\[(.*?)\]", answer, re.DOTALL)
-            if not assets_match:
-                assets_match = re.search(r"资产类别\s*=\s*\[(.*?)\]", answer, re.DOTALL)
-            if assets_match:
-                assets_text = assets_match.group(1)
-                print(f"DEBUG - 提取到资产类别文本: {assets_text}")
-                assets = [asset.strip() for asset in assets_text.split("\n") if asset.strip()]
-                data["资产类别"] = assets
-                print(f"DEBUG - 成功提取资产类别: {assets}")
+def extract_last_entry(conversation_id):
+    # 1) 统一选用可写路径：优先环境变量，其次 config.CONVERSATION_LOG_FILE，最后兜底 /tmp
+    log_path = os.environ.get("CONVERSATION_LOG_FILE", CONVERSATION_LOG_FILE)
+    if not os.path.isabs(log_path):
+        # 云端仓库目录只读，若相对路径则回落到 /tmp
+        log_path = "/tmp/conversation_log.json"
+
+    print(f"DEBUG - 开始提取对话信息，conversation_id: {conversation_id}, log_path: {log_path}")
+
+    input_data = []
+    # 2) 读取日志文件（容错：不存在、为空、JSON损坏都不抛异常）
+    if os.path.exists(log_path):
+        try:
+            if os.path.getsize(log_path) > 0:
+                print(f"DEBUG - 找到对话日志文件: {log_path}")
+                with open(log_path, "r", encoding="utf-8") as file:
+                    input_data = json.load(file)
             else:
-                data["资产类别"] = []
-                print("DEBUG - 未找到资产类别信息")
-                asset_lines = re.findall(r"→\s*([^→\n]+?)\s+(\d+[\.%]?\d*%?)", answer)
-                if asset_lines:
-                    print(f"DEBUG - 从箭头格式提取到资产: {asset_lines}")
-                    assets = [line[0].strip() for line in asset_lines]
-                    data["资产类别"] = assets
-                    print(f"DEBUG - 从箭头格式成功提取资产类别: {assets}")
-            # 提取资产配置
-            print("DEBUG - 开始提取资产配置")
-            allocation_match = re.search(r"当前资产配置\s*[:：]\s*\[(.*?)\]", answer, re.DOTALL)
-            if not allocation_match:
-                allocation_match = re.search(r"当前资产配置\s*=\s*\[(.*?)\]", answer, re.DOTALL)
-            if allocation_match:
-                allocation_text = allocation_match.group(1)
-                print(f"DEBUG - 提取到资产配置文本: {allocation_text}")
-                allocation = [float(a.strip()) for a in allocation_text.split("\n") if a.strip()]
-                data["当前资产配置"] = allocation
-                print(f"DEBUG - 成功提取资产配置: {allocation}")
-            else:
-                data["当前资产配置"] = []
-                print("DEBUG - 未找到资产配置信息")
-                if 'asset_lines' in locals() and asset_lines:
-                    print(f"DEBUG - 从箭头格式提取百分比: {asset_lines}")
-                    allocations = []
-                    for line in asset_lines:
-                        percent_str = line[1].strip()
-                        try:
-                            percent = float(percent_str.replace('%', '')) / 100
-                            allocations.append(percent)
-                        except ValueError:
-                            allocations.append(0.0)
-                    if allocations:
-                        data["当前资产配置"] = allocations
-                        print(f"DEBUG - 从箭头格式成功提取资产配置: {allocations}")
-            # 设置默认值
-            defaults = {
-                "success_threshold": 0.6,
-                "投资目的": "财富增值",
-                "最大可接受回撤": 0.3,
-                "流动性要求": "medium",
-                "允许杠杆": False,
-                "厌恶资产": [],
-                "用户类型": "平衡型",
-                "风险偏好": "Medium"
-            }
-            for key, value in defaults.items():
-                if key not in data:
-                    data[key] = value
-                    print(f"DEBUG - 设置默认值 {key}: {value}")
-            # 新增：风险类型自动补全
-            risk_type = data.get("风险评估类型")
-            if risk_type and risk_type in RISK_MAP:
-                for k, v in RISK_MAP[risk_type].items():
-                    data[k] = v
-                    print(f"DEBUG - 风险类型补全 {k}: {v}")
-            print("DEBUG - 最终提取的数据:")
-            for key, value in data.items():
-                print(f"DEBUG - {key}: {value}")
-            return data
+                print(f"DEBUG - 对话日志文件为空: {log_path}")
+        except Exception as e:
+            print(f"DEBUG - 读取日志失败({log_path}): {e}")
+
+    # 3) 根据 conversation_id 过滤；若拿不到，则使用最后一条合法记录兜底
+    user_entries = [e for e in input_data if e.get("conversation_id") == conversation_id] if input_data else []
+    if not user_entries and input_data:
+        print("DEBUG - 未匹配到该会话ID，使用最后一条记录兜底")
+        user_entries = [input_data[-1]]
+
+    answer = ""
+    if user_entries:
+        last_entry = user_entries[-1]
+        print(f"DEBUG - 获取最后一条记录的时间戳: {last_entry.get('timestamp', '未知')}")
+        response_data = last_entry.get("response_data") or {}
+        answer = response_data.get("answer", "") or ""
+        print(f"DEBUG - 获取到的回答长度: {len(answer)} 字符")
+        print(f"DEBUG - 回答前100字符: {answer[:100]}...")
+
+    # 4) 如果文件读不到答案，直接从 Streamlit 会话内存兜底
+    if not answer:
+        try:
+            import streamlit as st  # 延迟导入，避免非 Streamlit 场景报错
+            answer = (st.session_state.get("dify_response") or "").strip()
+            if answer:
+                print("DEBUG - 从 st.session_state.dify_response 获取到答案内容")
+        except Exception as e:
+            print(f"DEBUG - 无法从 st.session_state 读取 dify_response: {e}")
+
+    if not answer:
+        print("DEBUG - 未找到可解析的答案内容")
+        return {}
+
+    # 5) 解析逻辑（与原始版本一致，略做健壮性处理）
+    data = {}
+    print("DEBUG - 开始提取关键信息")
+    for line in answer.split("\n"):
+        if "：" not in line:
+            continue
+        parts = line.split("：")
+        if len(parts) < 2:
+            continue
+        key = parts[0].strip()
+        value_str = parts[1].strip()
+        print(f"DEBUG - 提取到键值对: {key} = {value_str}")
+        if key == "目标金额":
+            try:
+                data["目标金额"] = int(value_str)
+                print(f"DEBUG - 成功提取目标金额: {data['目标金额']}")
+            except ValueError:
+                data["目标金额"] = 0
+                print(f"DEBUG - 目标金额转换失败，使用默认值: 0")
+        elif key == "投资年限":
+            try:
+                data["投资年限"] = int(value_str)
+                print(f"DEBUG - 成功提取投资年限: {data['投资年限']}")
+            except ValueError:
+                data["投资年限"] = 0
+                print(f"DEBUG - 投资年限转换失败，使用默认值: 0")
+        elif key == "初始资金":
+            try:
+                data["初始资金"] = int(value_str)
+                print(f"DEBUG - 成功提取初始资金: {data['初始资金']}")
+            except ValueError:
+                data["初始资金"] = 0
+                print(f"DEBUG - 初始资金转换失败，使用默认值: 0")
+        elif key == "可接受的资产波动率":
+            try:
+                data["可接受的资产波动率"] = float(value_str)
+                print(f"DEBUG - 成功提取可接受的资产波动率: {data['可接受的资产波动率']}")
+            except ValueError:
+                data["可接受的资产波动率"] = 0.0
+                print(f"DEBUG - 可接受的资产波动率转换失败，使用默认值: 0.0")
+        elif key == "成功概率":
+            try:
+                value_float = float(value_str.replace("%", "")) / 100 if "%" in value_str else float(value_str)
+                data["成功概率"] = value_float
+                print(f"DEBUG - 成功提取成功概率: {data['成功概率']}")
+            except ValueError:
+                data["成功概率"] = 0.0
+                print(f"DEBUG - 成功概率转换失败，使用默认值: 0.0")
+        elif key == "投资目的":
+            data["投资目的"] = value_str
+        elif key == "最大可接受回撤":
+            try:
+                data["最大可接受回撤"] = float(value_str.replace("%", ""))/100 if "%" in value_str else float(value_str)
+            except ValueError:
+                data["最大可接受回撤"] = 0.3
+        elif key == "流动性要求":
+            data["流动性要求"] = value_str.lower()
+        elif key == "允许杠杆":
+            data["允许杠杆"] = value_str.lower() in ["是", "yes", "true"]
+        elif key == "厌恶资产":
+            data["厌恶资产"] = [x.strip() for x in value_str.split(",") if x.strip()]
+        elif key == "用户类型":
+            data["用户类型"] = value_str
+        elif key == "风险偏好":
+            data["风险偏好"] = value_str.capitalize()
+        elif key == "风险评估类型":
+            data["风险评估类型"] = value_str
+
+    print("DEBUG - 开始提取资产类别")
+    assets_match = re.search(r"资产类别\s*[:：]\s*\[(.*?)\]", answer, re.DOTALL) or \
+                   re.search(r"资产类别\s*=\s*\[(.*?)\]", answer, re.DOTALL)
+    if assets_match:
+        assets_text = assets_match.group(1)
+        print(f"DEBUG - 提取到资产类别文本: {assets_text}")
+        assets = [asset.strip() for asset in assets_text.split("\n") if asset.strip()]
+        data["资产类别"] = assets
+        print(f"DEBUG - 成功提取资产类别: {assets}")
     else:
-        print(f"DEBUG - 未找到对话日志文件: {CONVERSATION_LOG_FILE}")
-    return {}
+        data["资产类别"] = []
+        print("DEBUG - 未找到资产类别信息")
+        asset_lines = re.findall(r"→\s*([^→\n]+?)\s+(\d+[\.%]?\d*%?)", answer)
+        if asset_lines:
+            print(f"DEBUG - 从箭头格式提取到资产: {asset_lines}")
+            data["资产类别"] = [line[0].strip() for line in asset_lines]
+            print(f"DEBUG - 从箭头格式成功提取资产类别: {data['资产类别']}")
+
+    print("DEBUG - 开始提取资产配置")
+    allocation_match = re.search(r"当前资产配置\s*[:：]\s*\[(.*?)\]", answer, re.DOTALL) or \
+                       re.search(r"当前资产配置\s*=\s*\[(.*?)\]", answer, re.DOTALL)
+    if allocation_match:
+        allocation_text = allocation_match.group(1)
+        print(f"DEBUG - 提取到资产配置文本: {allocation_text}")
+        allocation = [float(a.strip()) for a in allocation_text.split("\n") if a.strip()]
+        data["当前资产配置"] = allocation
+        print(f"DEBUG - 成功提取资产配置: {allocation}")
+    else:
+        data["当前资产配置"] = []
+        print("DEBUG - 未找到资产配置信息")
+        asset_lines = re.findall(r"→\s*([^→\n]+?)\s+(\d+[\.%]?\d*%?)", answer)
+        if asset_lines:
+            print(f"DEBUG - 从箭头格式提取百分比: {asset_lines}")
+            allocations = []
+            for line in asset_lines:
+                percent_str = line[1].strip()
+                try:
+                    percent = float(percent_str.replace('%', '')) / 100
+                except ValueError:
+                    percent = 0.0
+                allocations.append(percent)
+            if allocations:
+                data["当前资产配置"] = allocations
+                print(f"DEBUG - 从箭头格式成功提取资产配置: {allocations}")
+
+    defaults = {
+        "success_threshold": 0.6,
+        "投资目的": "财富增值",
+        "最大可接受回撤": 0.3,
+        "流动性要求": "medium",
+        "允许杠杆": False,
+        "厌恶资产": [],
+        "用户类型": "平衡型",
+        "风险偏好": "Medium"
+    }
+    for k, v in defaults.items():
+        if k not in data:
+            data[k] = v
+            print(f"DEBUG - 设置默认值 {k}: {v}")
+
+    risk_type = data.get("风险评估类型")
+    if risk_type and risk_type in RISK_MAP:
+        for k, v in RISK_MAP[risk_type].items():
+            data[k] = v
+            print(f"DEBUG - 风险类型补全 {k}: {v}")
+
+    print("DEBUG - 最终提取的数据:")
+    for k, v in data.items():
+        print(f"DEBUG - {k}: {v}")
+
+    return data
 
 # def portfolio_optimization(mean_returns, cov_matrix, target_amount, years, initial_funds, max_volatility):
 #     num_assets = len(mean_returns)
@@ -472,4 +495,5 @@ def chat(messages) -> Choice:
         }),
         'finish_reason': 'stop'  # 添加 finish_reason 属性
     })
+
     return mock_response
